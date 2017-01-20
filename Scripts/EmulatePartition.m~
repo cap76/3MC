@@ -1,0 +1,54 @@
+function Dat = EmulatePartition(Arc);
+
+addpath(genpath('./'))
+addpath(genpath('../Pseudotime_Algorithms'))
+
+warning off all
+
+rng(Arc)
+
+%__________________________________________________________________________
+%Parameters for the polymer statistic model
+No       = 100000;                 %Number of steps in the Polymer Markov Chain.
+len      = 100;                    %Number of beads in the polymer chain.
+kappa    = 1e-10;                  %Von Mises Fisher clustering of telomeres
+Radius   = 1600;                   %Radius of the Nuclear Periphery (um).
+U        = 0;                      %Potential for beads outside of the NP.
+a        = 1/(99);                %Bond vector length.
+%__________________________________________________________________________
+%Parameters for the GP model
+covfunc = {'covSum',{'covSEiso','covNoise'}};  %Covariance function
+N       = len-2;
+Hbase       = [log(.1); log(0.3); log(1e-5)]; %Hyperparameters of covariance function
+H       = [log(.05); log(0.5); log(1e-5)]; %Hyperparameters of covariance function
+x       = linspace(0,1,N);
+K       = feval(covfunc{:}, H, x'); %Covariance matrix at observation points
+n       = length(x);
+
+Htrue = log(abs(repmat(exp(Htrue),100000,1) + [randn(100000,2)*1,zeros(100000,1)]));
+Delta = randn(100000,1);
+x     = linspace(0,1,N);
+Ylat  = zeros(100000,N);
+
+for i = 1:size(Htrue,1)
+K          = feval(covfunc{:}, Htrue(i,:)', x'); %Covariance matrix at observation points
+Ylat(i,:)  = real(gsamp(zeros(1,N)',K,1)) - Delta(i,1); %Generate sample function represent true kappa
+ktrue      = exp(Ylat(i,:));                      %Persistence length (um).
+Parameters = [No,len,1600,0,a,ktrue];  %Group parameters.
+Zantrue(i,1)   = EstimatePartition(Parameters);
+
+if double(int64(i/10000))==(i/10000)
+disp(['Step ' num2str(i)])
+end
+
+end
+
+Part.Ylat = Ylat;
+Part.Zantrue = Zantrue;
+Part.Htrue = Htrue;
+Part.Delta = Delta;
+Part.covfunc = covfunc;
+
+%mkdir('./HWLC_r')
+save(['./HWLC/EmulatePartition_' num2str(Arc) '.mat'],'-v7.3','Part')
+
